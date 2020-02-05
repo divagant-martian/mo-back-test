@@ -23,7 +23,8 @@ class Pokemon(models.Model):
     defense = models.IntegerField()
     attack = models.IntegerField()
     hp = models.IntegerField()
-    evolutions = models.ManyToManyField('self')
+    pre_evolution = models.ForeignKey('self', on_delete=models.CASCADE,
+        related_name='evolutions', null=True)
 
     def __str__(self):
         return self.name
