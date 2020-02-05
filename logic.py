@@ -64,30 +64,24 @@ def getPokemon(species_url):
     if len(varieties) == 0:
         raise IndexError("Species {} has no varieties".format(species["name"]))
 
-    # get the URL for the default Pokemon
-    pokemon_url = None
+    # get the URL for the default Pokemon. Defaults to the first one
+    pokemon_url = varieties[0]["pokemon"]["url"]
     for variety in varieties:
         if variety["is_default"]:
             pokemon_url = variety["pokemon"]["url"]
 
-    # this can only be None if no variety was the default one
-    if pokemon_url is None:
-        pokemon_url = varieties[0]["pokemon"]["url"]
-
     # get the information of the Pokemon.
-    pokemon = getResponse(pokemon_url)
+    pokemon_info = getResponse(pokemon_url)
 
     # filter the attributes that we care about
     pokemon = {
-        k: pokemon[k]
-        for k in ["id", "name", "stats", "weight", "height"]
+        k: pokemon_info[k]
+        for k in ["id", "name", "weight", "height"]
     }
 
     # reorganize the stats to just be the name and value of each stat
-    pokemon["stats"] = [{
-        "name": stat["stat"]["name"],
-        "base": stat["base_stat"]
-    } for stat in pokemon["stats"]]
+    for stat in pokemon_info["stats"]:
+        pokemon[stat["stat"]["name"]] = stat["base_stat"]
 
     return pokemon
 
@@ -100,23 +94,19 @@ def getEvolutionChain(chain_id):
         chain_id: ID for the evolution chain
 
     Returns:
-        Graph for the evolution chain as a tuple. The first element is a
-        dictionary with the Pokemon indexed by ID and the second element is a
-        list with the evolution links between Pokemon IDs
-
+        Graph for the evolution chain as a tuple (V, E), where V contains all
+        pokemon present in the graph, and E contains all pairs (p1, p2) such
+        that p1 evolves to p2. V is a dict of the form ID:info, E is a list of
+        (id1, id2)
     """
     url = evolutionChainUrl(chain_id)
-    # get the evolution chain information from the URL
     chain = getResponse(url)["chain"]
 
-    # build a graph for the species, where each node is a species, and two
-    # species are linked if the first species evolves into the second
+    species_nodes = set() # known pokemons species
+    species_links = []    # known links
 
-    species_nodes = set()
-    species_links = []
-
-    # traverse the evolution chain using DFS. Each element of the stack is a
-    # tuple with the species URL and the species it evolves to.
+    # traverse the evolution chain. Each element of the stack is a tuple with
+    # the species URL and the list of species it evolves to.
     stack = []
 
     # start from the root of the chain
@@ -127,16 +117,16 @@ def getEvolutionChain(chain_id):
     while len(stack) > 0:
         # take an element from the top of the stack
         (species_url, evolutions) = stack.pop()
-        # add the species URL to the nodes set
         species_nodes.add(species_url)
 
         for evolution in evolutions:
-            # get the URL of the evolved species
             evolved_species_url = evolution["species"]["url"]
             # add to the links the current species and the evolved species URL
             species_links.append((species_url, evolved_species_url))
             # add the evolved species URL and its evolutions to the stack
             stack.append((evolved_species_url, evolution["evolves_to"]))
+    # NOTE this process does not need to check for visited nodes since there are
+    # no cycles in the graph
 
     # transform this graph of species into a graph of Pokemon
 
