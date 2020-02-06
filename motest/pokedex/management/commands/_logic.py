@@ -74,14 +74,12 @@ def getPokemon(species_url):
     pokemon_info = getResponse(pokemon_url)
 
     # filter the attributes that we care about
-    pokemon = {
-        k: pokemon_info[k]
-        for k in ["id", "name", "weight", "height"]
-    }
+    pokemon = {k: pokemon_info[k] for k in ["id", "name", "weight", "height"]}
 
     # reorganize the stats to just be the name and value of each stat
     for stat in pokemon_info["stats"]:
-        pokemon[stat["stat"]["name"]] = stat["base_stat"]
+        stat_name = stat["stat"]["name"].replace("-", "_")
+        pokemon[stat_name] = stat["base_stat"]
 
     return pokemon
 
@@ -96,14 +94,13 @@ def getEvolutionChain(chain_id):
     Returns:
         Graph for the evolution chain as a tuple (V, E), where V contains all
         pokemon present in the graph, and E contains all pairs (p1, p2) such
-        that p1 evolves to p2. V is a dict of the form ID:info, E is a list of
-        (id1, id2)
+        that p1 evolves to p2. V is a list of dicts, E is a list of (id1, id2)
     """
     url = evolutionChainUrl(chain_id)
     chain = getResponse(url)["chain"]
 
-    species_nodes = set() # known pokemons species
-    species_links = []    # known links
+    species_nodes = set()  # known pokemons species
+    species_links = []  # known links
 
     # traverse the evolution chain. Each element of the stack is a tuple with
     # the species URL and the list of species it evolves to.
@@ -137,13 +134,11 @@ def getEvolutionChain(chain_id):
     }
 
     # here we store the evolution links between two Pokemon using their IDs
-    poke_links = [{
-        "from": poke_nodes[species_from]["id"],
-        "to": poke_nodes[species_to]["id"]
-    } for (species_from, species_to) in species_links]
+    poke_links = [(poke_nodes[species_from]["id"],
+                   poke_nodes[species_to]["id"])
+                  for (species_from, species_to) in species_links]
 
     # reindex the Pokemon by their own IDs instead of their species URL
-    poke_nodes = {poke["id"]: poke for poke in poke_nodes.values()}
+    poke_nodes = [poke for poke in poke_nodes.values()]
 
     return (poke_nodes, poke_links)
-
